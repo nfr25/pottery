@@ -4,6 +4,7 @@
 
 #define CLAY_IMPLEMENTATION
 #include "pottery_internal.h"
+#include <stdio.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -205,7 +206,10 @@ bool pottery_kiln_begin_frame(PotteryKiln *kiln) {
             kiln->surface = *((cairo_surface_t **)kiln->backend->data);
             cairo_destroy(kiln->cr);
             kiln->cr = cairo_create(kiln->surface);
+            /* Mettre à jour le contexte Pango avec le nouveau cairo_t */
+            pango_cairo_update_context(kiln->cr, kiln->text.context);
             /* Inform Clay */
+            fprintf(stderr, "RESIZE Clay: %dx%d\n", kiln->width, kiln->height);
             Clay_SetLayoutDimensions(
                 (Clay_Dimensions){ (float)kiln->width, (float)kiln->height });
         }

@@ -31,8 +31,9 @@ typedef struct {
     cairo_surface_t *surface;
 
     HWND  hwnd;
-    HDC   hdc;
-    int   width, height;
+    HDC     hdc;
+    HBITMAP hbmp;   /* bitmap offscreen courant */
+    int     width, height;
     bool  quit;
 
     /* Event queue (ring buffer) */
@@ -190,6 +191,10 @@ static LRESULT CALLBACK pottery_wndproc(HWND hwnd, UINT msg,
             }
             return 0;
 
+        case WM_ERASEBKGND:
+            /* On gère nous-mêmes l'effacement — évite le noir pendant le resize */
+            return 1;
+
         case WM_PAINT: {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
@@ -246,14 +251,16 @@ static bool win32_init(void *data, int w, int h, const char *title) {
     SetWindowLongPtr(d->hwnd, GWLP_USERDATA, (LONG_PTR)d);
 
     /* Create offscreen DC and Cairo surface */
-    HDC screen = GetDC(d->hwnd);
-    d->hdc = CreateCompatibleDC(screen);
-    ReleaseDC(d->hwnd, screen);
+    { HDC screen = GetDC(d->hwnd);
+      d->hdc = CreateCompatibleDC(screen);
+      ReleaseDC(d->hwnd, screen); }
 
-    HBITMAP bmp = CreateCompatibleBitmap(GetDC(d->hwnd), w, h);
-    SelectObject(d->hdc, bmp);
+    { HDC tmp = GetDC(d->hwnd);
+      d->hbmp = CreateCompatibleBitmap(tmp, w, h);
+      ReleaseDC(d->hwnd, tmp); }
+    SelectObject(d->hdc, d->hbmp);
 
-    d->surface = cairo_win32_surface_create(d->hdc);
+    d->surface = cairo_win32_surface_create_with_dib(CAIRO_FORMAT_RGB24, w, h);
 
     ShowWindow(d->hwnd, SW_SHOW);
     UpdateWindow(d->hwnd);
@@ -268,13 +275,21 @@ static bool win32_resize(void *data, int w, int h) {
         d->surface = NULL;
     }
 
-    /* Recreate compatible bitmap for the new size */
-    HBITMAP bmp = CreateCompatibleBitmap(GetDC(d->hwnd), w, h);
-    SelectObject(d->hdc, bmp);
+    /* Supprimer l'ancien bitmap et en créer un nouveau */
+    if (d->hbmp) {
+        SelectObject(d->hdc, (HBITMAP)GetStockObject(NULL_BRUSH)); /* désélectionner le bitmap */
+        DeleteObject(d->hbmp);
+    }
+    { HDC tmp = GetDC(d->hwnd);
+      d->hbmp = CreateCompatibleBitmap(tmp, w, h);
+      ReleaseDC(d->hwnd, tmp); }
+    SelectObject(d->hdc, d->hbmp);
 
-    d->surface = cairo_win32_surface_create(d->hdc);
+    d->surface = cairo_win32_surface_create_with_dib(CAIRO_FORMAT_RGB24, w, h);
     d->width   = w;
     d->height  = h;
+    /* Forcer le repaint sur toute la fenêtre */
+    InvalidateRect(d->hwnd, NULL, TRUE);
     return d->surface != NULL;
 }
 
@@ -299,10 +314,12 @@ static bool win32_poll_event(void *data, PotteryEvent *evt) {
 
 static void win32_present(void *data) {
     Win32BackendData *d = (Win32BackendData *)data;
-    /* Flush Cairo avant BitBlt — Cairo bufferise ses opérations */
+    /* Flush Cairo avant BitBlt */
     cairo_surface_flush(d->surface);
+    /* Pour DIB surface, on récupère le DC depuis Cairo */
+    HDC src_dc = cairo_win32_surface_get_dc(d->surface);
     HDC wnd_dc = GetDC(d->hwnd);
-    BitBlt(wnd_dc, 0, 0, d->width, d->height, d->hdc, 0, 0, SRCCOPY);
+    BitBlt(wnd_dc, 0, 0, d->width, d->height, src_dc, 0, 0, SRCCOPY);
     ReleaseDC(d->hwnd, wnd_dc);
 }
 
@@ -337,6 +354,7 @@ static void win32_clipboard_set(void *data, const char *utf8) {
 static void win32_destroy(void *data) {
     Win32BackendData *d = (Win32BackendData *)data;
     if (d->surface) cairo_surface_destroy(d->surface);
+    if (d->hbmp)    DeleteObject(d->hbmp);
     if (d->hdc)     DeleteDC(d->hdc);
     if (d->hwnd)    DestroyWindow(d->hwnd);
 }
