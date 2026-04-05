@@ -11,7 +11,6 @@
  */
 
 #include "../pottery_internal.h"
-#include <stdio.h>
 #include <string.h>
 
 /* =========================================================================
@@ -43,7 +42,6 @@ bool pottery_mold_button(PotteryKiln *kiln, const char *id,
 
     /* ---- 2. Build payload dans le pool du kiln (valide jusqu'à end_frame) ---- */
     PotteryCustomPayload *payload = pottery_payload_alloc(&kiln->payload_pool);
-    fprintf(stderr, "[POTTERY] button mold: id=%s payload=%p\n", id, (void*)payload);
     if (!payload) return false;
     payload->type             = POTTERY_CUSTOM_BUTTON;
     payload->state            = state;
@@ -69,23 +67,23 @@ bool pottery_mold_button(PotteryKiln *kiln, const char *id,
     uint16_t py = (uint16_t)kiln->glaze.padding_y;
 
     Clay_ElementDeclaration decl = {0};
+    /* Hauteur minimale : 2*padding_y + hauteur de ligne (~18px pour Segoe UI 10)
+     * Clay ne peut pas mesurer le contenu CUSTOM — on fixe la hauteur explicitement. */
+    float min_h = kiln->glaze.padding_y * 2.0f + 18.0f;
+
     decl.layout = (Clay_LayoutConfig){
         .sizing = {
-            /* Translate PotterySizing to Clay */
             .width  = (w.type == POTTERY_SIZING_GROW)
                         ? CLAY_SIZING_GROW()
                       : (w.type == POTTERY_SIZING_FIXED)
                         ? CLAY_SIZING_FIXED(w.value)
                         : CLAY_SIZING_FIT(),
-            .height = (h.type == POTTERY_SIZING_GROW)
-                        ? CLAY_SIZING_GROW()
-                      : (h.type == POTTERY_SIZING_FIXED)
+            .height = (h.type == POTTERY_SIZING_FIXED)
                         ? CLAY_SIZING_FIXED(h.value)
-                        : CLAY_SIZING_FIT(),
+                        : CLAY_SIZING_FIXED(min_h),
         },
         .padding = { .left = px, .right = px, .top = py, .bottom = py },
     };
-    fprintf(stderr, "[POTTERY] button decl: customData=%p\n", (void*)payload);
     decl.custom.customData = payload;
 
     Clay__OpenElementWithId(Clay_GetElementId((Clay_String){.length=(int)strlen(id),.chars=id}));

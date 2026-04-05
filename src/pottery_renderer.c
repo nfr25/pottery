@@ -11,7 +11,6 @@
  */
 
 #include "pottery_internal.h"
-#include <stdio.h>
 #include <math.h>  /* fminf, etc. — G_PI/G_PI_2 viennent de GLib via pottery_internal.h */
 #include <string.h>
 
@@ -109,8 +108,6 @@ void pottery_renderer_fire(PotteryRenderer *rend,
 
             /* ---- Filled rectangle ---- */
             case CLAY_RENDER_COMMAND_TYPE_RECTANGLE: {
-                fprintf(stderr, "[POTTERY] RECT cmd: bb=(%.0f,%.0f,%.0f,%.0f)\n",
-                    bb.x, bb.y, bb.width, bb.height);
                 /*
                  * API Clay >= 0.13 :
                  *   cmd->renderData.rectangle  →  Clay_RectangleRenderData
@@ -216,8 +213,6 @@ void pottery_renderer_fire(PotteryRenderer *rend,
             /* ---- Custom (widgets) ---- */
             case CLAY_RENDER_COMMAND_TYPE_CUSTOM: {
                 Clay_CustomRenderData cd = cmd->renderData.custom;
-                fprintf(stderr, "[POTTERY] CUSTOM cmd: bb=(%.0f,%.0f,%.0f,%.0f) customData=%p\n",
-                    bb.x, bb.y, bb.width, bb.height, cd.customData);
                 pottery_renderer_custom(rend, bb, cd.customData);
                 break;
             }

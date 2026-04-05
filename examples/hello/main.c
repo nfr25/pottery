@@ -34,6 +34,7 @@ static void build_ui(PotteryKiln *kiln, AppState *app) {
 
         pottery_mold_label(kiln, "title", "Hello, Pottery!",
             &(PotteryLabelOpts){ .base.width = POTTERY_GROW() });
+            
 
         pottery_mold_separator(kiln, true);
 
@@ -58,7 +59,7 @@ static void build_ui(PotteryKiln *kiln, AppState *app) {
             if (pottery_mold_button(kiln, "greet_btn", "Greet", &greet_opts))
                 app->click_count++;
 
-            PotteryButtonOpts theme_opts = { .base.width = POTTERY_FIT() };
+            PotteryButtonOpts theme_opts = { .base.width = POTTERY_FIXED(100) };
             if (pottery_mold_button(kiln, "theme_btn",
                     app->dark_mode ? "Light mode" : "Dark mode", &theme_opts))
                 app->dark_mode = !app->dark_mode;

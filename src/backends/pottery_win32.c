@@ -299,6 +299,8 @@ static bool win32_poll_event(void *data, PotteryEvent *evt) {
 
 static void win32_present(void *data) {
     Win32BackendData *d = (Win32BackendData *)data;
+    /* Flush Cairo avant BitBlt — Cairo bufferise ses opérations */
+    cairo_surface_flush(d->surface);
     HDC wnd_dc = GetDC(d->hwnd);
     BitBlt(wnd_dc, 0, 0, d->width, d->height, d->hdc, 0, 0, SRCCOPY);
     ReleaseDC(d->hwnd, wnd_dc);
