@@ -1,0 +1,67 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Pottery (hello)",
+            "type": "shell",
+            "command": "make",
+            "args": [],
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "C:\\msys64\\usr\\bin\\bash.exe",
+                    "args": ["-l", "-c"]
+                }
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": {
+                "owner": "gcc",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            }
+        },
+        {
+            "label": "Clean",
+            "type": "shell",
+            "command": "make clean",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "C:\\msys64\\usr\\bin\\bash.exe",
+                    "args": ["-l", "-c"]
+                }
+            },
+            "group": "build"
+        },
+        {
+            "label": "Run hello",
+            "type": "shell",
+            "command": "./build/bin/hello.exe",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "C:\\msys64\\usr\\bin\\bash.exe",
+                    "args": ["-l", "-c"]
+                }
+            },
+            "dependsOn": "Build Pottery (hello)",
+            "group": "test"
+        }
+    ]
+}
