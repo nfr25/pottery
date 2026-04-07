@@ -89,24 +89,49 @@ void pottery_icon_draw(cairo_t *cr, PotteryIcon *icon,
                        const PotteryColor *tint) {
     if (!icon || !icon->handle) return;
 
-    /* Get natural SVG dimensions */
-    RsvgRectangle viewport = { x, y, size, size };
+    int isize = (int)size;
+    if (isize < 1) isize = 1;
 
-    cairo_save(cr);
+    /*
+     * Rendu sur une surface intermédiaire ARGB32 transparente.
+     * Sans ça, librsvg remplit le viewport avec du noir opaque
+     * avant de dessiner, ce qui écrase le fond du bouton.
+     */
+    cairo_surface_t *tmp = cairo_image_surface_create(
+        CAIRO_FORMAT_ARGB32, isize, isize);
+    cairo_t *tmp_cr = cairo_create(tmp);
 
+    /* Surface transparente */
+    cairo_set_operator(tmp_cr, CAIRO_OPERATOR_CLEAR);
+    cairo_paint(tmp_cr);
+    cairo_set_operator(tmp_cr, CAIRO_OPERATOR_OVER);
+
+    /* Rendre le SVG dans la surface temporaire (viewport local 0,0,size,size) */
+    RsvgRectangle viewport = { 0, 0, (double)isize, (double)isize };
     GError *err = NULL;
-    rsvg_handle_render_document(icon->handle, cr, &viewport, &err);
+    rsvg_handle_render_document(icon->handle, tmp_cr, &viewport, &err);
     if (err) g_error_free(err);
 
-    /* Tint: paint a solid color over the icon using MULTIPLY or IN operator.
-     * MULTIPLY works well for dark icons on light backgrounds;
-     * for general use, consider a separate mask approach. */
+    cairo_destroy(tmp_cr);
+    cairo_surface_flush(tmp);
+
+    /* Composer sur le contexte principal avec OVER (respect de l'alpha) */
+    cairo_save(cr);
+    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+    cairo_set_source_surface(cr, tmp, x, y);
+    cairo_rectangle(cr, x, y, isize, isize);
+    cairo_fill(cr);
+    cairo_restore(cr);
+
+    cairo_surface_destroy(tmp);
+
+    /* Tint optionnel par-dessus */
     if (tint && tint->a > 0.0f) {
+        cairo_save(cr);
         cairo_set_operator(cr, CAIRO_OPERATOR_MULTIPLY);
         cairo_set_source_rgba(cr, tint->r, tint->g, tint->b, tint->a);
         cairo_rectangle(cr, x, y, size, size);
         cairo_fill(cr);
+        cairo_restore(cr);
     }
-
-    cairo_restore(cr);
 }
