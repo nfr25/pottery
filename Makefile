@@ -31,9 +31,8 @@ SRC_CORE := \
     src/pottery_vessel.c  \
     src/molds/pottery_button.c \
     src/molds/pottery_label.c  \
+    src/molds/pottery_edit.c   \
     src/backends/pottery_win32.c
-# À ajouter quand écrits :
-#   src/molds/pottery_edit.c
 #   src/molds/pottery_combo.c
 #   src/molds/pottery_list.c
 #   src/molds/pottery_tree.c

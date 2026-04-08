@@ -1,3 +1,4 @@
+#include <stdio.h>
 /*
  * pottery_renderer.c — Translates Clay_RenderCommandArray to Cairo draw calls.
  *
@@ -316,6 +317,7 @@ static void draw_button(PotteryRenderer *rend, Clay_BoundingBox bb,
 
 static void draw_edit(PotteryRenderer *rend, Clay_BoundingBox bb,
                        PotteryCustomPayload *p) {
+    
     cairo_t            *cr    = rend->cr;
     PotteryGlaze       *glaze = rend->glaze;
     PotteryWidgetState *state = p->state;

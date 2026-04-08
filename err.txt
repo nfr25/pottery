@@ -1,0 +1,1 @@
+  CC src/molds/pottery_edit.c
