@@ -1,4 +1,3 @@
-#include <stdio.h>
 /*
  * pottery_renderer.c — Translates Clay_RenderCommandArray to Cairo draw calls.
  *
@@ -69,6 +68,8 @@ static void draw_button   (PotteryRenderer *rend, Clay_BoundingBox bb,
                             PotteryCustomPayload *p);
 static void draw_edit     (PotteryRenderer *rend, Clay_BoundingBox bb,
                             PotteryCustomPayload *p);
+static void draw_combo_button (PotteryRenderer *rend, Clay_BoundingBox bb,
+                                PotteryCustomPayload *p);
 static void draw_list_row (PotteryRenderer *rend, Clay_BoundingBox bb,
                             PotteryCustomPayload *p);
 static void draw_tree_row (PotteryRenderer *rend, Clay_BoundingBox bb,
@@ -84,7 +85,8 @@ static void pottery_renderer_custom(PotteryRenderer *rend,
 
     switch (p->type) {
         case POTTERY_CUSTOM_BUTTON:      draw_button   (rend, bb, p); break;
-        case POTTERY_CUSTOM_EDIT:        draw_edit     (rend, bb, p); break;
+        case POTTERY_CUSTOM_EDIT:        draw_edit         (rend, bb, p); break;
+        case POTTERY_CUSTOM_COMBO_BUTTON:  draw_combo_button (rend, bb, p); break;
         case POTTERY_CUSTOM_LIST_ROW:    draw_list_row (rend, bb, p); break;
         case POTTERY_CUSTOM_TREE_ROW:    draw_tree_row (rend, bb, p); break;
         case POTTERY_CUSTOM_ICON:        draw_icon     (rend, bb, p); break;
@@ -317,7 +319,6 @@ static void draw_button(PotteryRenderer *rend, Clay_BoundingBox bb,
 
 static void draw_edit(PotteryRenderer *rend, Clay_BoundingBox bb,
                        PotteryCustomPayload *p) {
-    
     cairo_t            *cr    = rend->cr;
     PotteryGlaze       *glaze = rend->glaze;
     PotteryWidgetState *state = p->state;
@@ -361,7 +362,20 @@ static void draw_edit(PotteryRenderer *rend, Clay_BoundingBox bb,
                           rend->text->font_body,
                           &glaze->text_secondary);
     } else if (displen > 0) {
-        /* TODO: selection highlight — draw before text */
+        /* Sélection highlight */
+        int ss = es->select_start;
+        int se = es->select_end;
+        if (ss > se) { int t = ss; ss = se; se = t; }
+        if (se > ss) {
+            float sx0 = text_x + pottery_text_cursor_x(
+                rend->text, display, displen, ss, rend->text->font_body);
+            float sx1 = text_x + pottery_text_cursor_x(
+                rend->text, display, displen, se, rend->text->font_body);
+            set_color(cr, &glaze->selection);
+            cairo_rectangle(cr, sx0, bb.y + glaze->padding_y * 0.5f,
+                sx1 - sx0, bb.height - glaze->padding_y);
+            cairo_fill(cr);
+        }
 
         /* Text */
         cairo_move_to(cr, text_x, text_y);
@@ -372,10 +386,11 @@ static void draw_edit(PotteryRenderer *rend, Clay_BoundingBox bb,
 
         /* Cursor — drawn only when focused */
         if (state->focused) {
-            /* Cursor position comes from stb_textedit via es->stb_state.
-             * For now we approximate: draw at end of text. */
+            /* Utiliser la vraie position du curseur depuis es->cursor_pos */
+            int   cur  = es->cursor_pos;
+            if (cur > displen) cur = displen;
             float cx = text_x + pottery_text_cursor_x(
-                rend->text, display, displen, displen,
+                rend->text, display, displen, cur,
                 rend->text->font_body);
 
             float char_h = bb.height - glaze->padding_y * 2.0f;
@@ -388,6 +403,70 @@ static void draw_edit(PotteryRenderer *rend, Clay_BoundingBox bb,
     }
 
     cairo_restore(cr); /* remove text clip */
+}
+
+/* ---- Combo button (header) ---- */
+
+static void draw_combo_button(PotteryRenderer *rend, Clay_BoundingBox bb,
+                               PotteryCustomPayload *p) {
+    cairo_t            *cr    = rend->cr;
+    PotteryGlaze       *glaze = rend->glaze;
+    PotteryWidgetState *state = p->state;
+    float r = glaze->border_radius;
+
+    /* Background */
+    set_color(cr, &glaze->surface);
+    rounded_rect(cr, bb.x, bb.y, bb.width, bb.height, r);
+    cairo_fill(cr);
+
+    /* Hover overlay */
+    if (state->hovered)
+        blend_overlay(cr, bb.x, bb.y, bb.width, bb.height, r, &glaze->hover);
+
+    /* Border — bleu si ouvert */
+    float bw = state->combo.open ? 2.0f : glaze->border_width;
+    const PotteryColor *bc = state->combo.open ? &glaze->primary : &glaze->border;
+    set_color(cr, bc);
+    cairo_set_line_width(cr, bw);
+    rounded_rect(cr, bb.x + bw * 0.5f, bb.y + bw * 0.5f,
+                  bb.width - bw, bb.height - bw, r);
+    cairo_stroke(cr);
+
+    /* Label (item sélectionné) */
+    const char *label = (p->combo.selected >= 0 &&
+                         p->combo.selected < p->combo.count)
+        ? p->combo.items[p->combo.selected] : "";
+
+    float arrow_sz = 8.0f;
+    float arrow_x  = bb.x + bb.width - glaze->padding_x - arrow_sz * 0.5f;
+    float arrow_y  = bb.y + bb.height * 0.5f;
+    float text_x   = bb.x + glaze->padding_x;
+    float text_y   = bb.y + glaze->padding_y;
+
+    if (label && label[0]) {
+        cairo_move_to(cr, text_x, text_y);
+        pottery_text_draw(cr, rend->text, label, (int)strlen(label),
+                          rend->text->font_body, &glaze->text_primary);
+    }
+
+    /* Flèche ▼ ou ▲ */
+    set_color(cr, &glaze->text_secondary);
+    cairo_save(cr);
+    cairo_translate(cr, arrow_x, arrow_y);
+    if (state->combo.open) {
+        /* ▲ */
+        cairo_move_to(cr, -arrow_sz * 0.5f,  arrow_sz * 0.25f);
+        cairo_line_to(cr,  0.0f,            -arrow_sz * 0.25f);
+        cairo_line_to(cr,  arrow_sz * 0.5f,  arrow_sz * 0.25f);
+    } else {
+        /* ▼ */
+        cairo_move_to(cr, -arrow_sz * 0.5f, -arrow_sz * 0.25f);
+        cairo_line_to(cr,  0.0f,             arrow_sz * 0.25f);
+        cairo_line_to(cr,  arrow_sz * 0.5f, -arrow_sz * 0.25f);
+    }
+    cairo_close_path(cr);
+    cairo_fill(cr);
+    cairo_restore(cr);
 }
 
 /* ---- List row ---- */

@@ -54,10 +54,13 @@ typedef struct {
 
 typedef struct {
     /* stb_textedit state + text buffer reference */
-    void   *stb_state;      /* opaque: STB_TexteditState, allocated in arena */
+    void   *stb_state;      /* opaque: EditFull (STB_TexteditState inclus)   */
     char   *buf;            /* points to application buffer (not owned)      */
     int     buf_size;
-    int     scroll_offset;  /* horizontal scroll in pixels                   */
+    int     scroll_offset;  /* horizontal scroll en pixels                   */
+    int     cursor_pos;     /* position curseur en bytes (pour le renderer)  */
+    int     select_start;   /* début sélection (-1 = pas de sélection)       */
+    int     select_end;
 } PotteryEditState;
 
 typedef struct {

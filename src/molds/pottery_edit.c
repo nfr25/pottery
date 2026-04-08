@@ -330,6 +330,11 @@ bool pottery_mold_edit(PotteryKiln *kiln, const char *id,
         }
     }
 
+    /* ---- 4b. Sync cursor_pos et select vers state (pour le renderer) ---- */
+    state->edit.cursor_pos   = full->stb.cursor;
+    state->edit.select_start = full->stb.select_start;
+    state->edit.select_end   = full->stb.select_end;
+
     /* ---- 5. Clay element ---- */
     PotterySizing w = (opts->base.width.type == POTTERY_SIZING_FIT &&
                        opts->base.width.value == 0)

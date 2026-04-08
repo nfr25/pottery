@@ -53,6 +53,7 @@ typedef struct {
     char  name[128];
     int   click_count;
     bool  dark_mode;
+    int   language;    /* pour le combo */
 } AppState;
 
 /* =========================================================================
@@ -144,6 +145,12 @@ static void build_ui(PotteryKiln *kiln, AppState *app,
 
         PotteryLabelOpts gl = { .base.width = POTTERY_GROW(), .wrap = true };
         pottery_mold_label(kiln, "greeting", greeting, &gl);
+
+        /* Combo de test */
+        static const char *languages[] = { "C", "C++", "Rust", "Zig", "Odin" };
+        PotteryComboOpts combo_opts = { .base.width = POTTERY_FIXED(120) };
+        pottery_mold_combo(kiln, "lang_combo",
+            languages, 5, &app->language, &combo_opts);
     }
 }
 
