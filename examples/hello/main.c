@@ -55,6 +55,7 @@ typedef struct {
     bool  dark_mode;
     int   language;
     int   selected_file;
+    int   selected_tree;
 } AppState;
 
 /* =========================================================================
@@ -195,6 +196,89 @@ static void build_ui(PotteryKiln *kiln, AppState *app,
             .show_header   = true,
         };
         pottery_mold_list(kiln, "file_list", &app->selected_file, &list_opts);
+
+        pottery_mold_separator(kiln, true);
+
+        /* Tree view — modèle hiérarchique */
+        /* Structure :
+         *   0: src/          (racine)
+         *     1: backends/   (enfant de 0)
+         *       2: win32.c   (enfant de 1)
+         *     3: molds/      (enfant de 0)
+         *       4: button.c  (enfant de 3)
+         *       5: edit.c    (enfant de 3)
+         *       6: combo.c   (enfant de 3)
+         *       7: list.c    (enfant de 3)
+         *       8: tree.c    (enfant de 3)
+         *     9: kiln.c      (enfant de 0)
+         *    10: renderer.c  (enfant de 0)
+         *    11: include/    (racine)
+         *      12: pottery.h (enfant de 11)
+         */
+        typedef struct { const char *name; int parent; } TreeNode;
+        static const TreeNode tree_nodes[] = {
+            { "src/",          -1 },
+            { "backends/",      0 },
+            { "pottery_win32.c",1 },
+            { "molds/",         0 },
+            { "pottery_button.c",3 },
+            { "pottery_edit.c", 3 },
+            { "pottery_combo.c",3 },
+            { "pottery_list.c", 3 },
+            { "pottery_tree.c", 3 },
+            { "pottery_kiln.c", 0 },
+            { "pottery_renderer.c", 0 },
+            { "include/",      -1 },
+            { "pottery.h",     11 },
+        };
+        static const int tree_node_count = 13;
+
+        /* Modèle tree inline */
+        typedef struct {
+            PotteryModel base;
+            const TreeNode *nodes;
+            int count;
+        } SimpleTreeModel;
+
+        int stm_row_count(PotteryModel *m) {
+            return ((SimpleTreeModel*)m)->count;
+        }
+        int stm_col_count(PotteryModel *m) { (void)m; return 1; }
+        const char *stm_get_cell(PotteryModel *m, int row, int col) {
+            (void)col;
+            return ((SimpleTreeModel*)m)->nodes[row].name;
+        }
+        int stm_child_count(PotteryModel *m, int row) {
+            SimpleTreeModel *sm = (SimpleTreeModel*)m;
+            int count = 0;
+            for (int i = 0; i < sm->count; i++)
+                if (sm->nodes[i].parent == row) count++;
+            return count;
+        }
+        int stm_parent_row(PotteryModel *m, int row) {
+            return ((SimpleTreeModel*)m)->nodes[row].parent;
+        }
+
+        SimpleTreeModel tree_model = {0};
+        bool tree_init = false;
+        if (!tree_init) {
+            tree_model.base.row_count  = stm_row_count;
+            tree_model.base.col_count  = stm_col_count;
+            tree_model.base.get_cell   = stm_get_cell;
+            tree_model.base.child_count= stm_child_count;
+            tree_model.base.parent_row = stm_parent_row;
+            tree_model.nodes = tree_nodes;
+            tree_model.count = tree_node_count;
+            tree_init = true;
+        }
+
+        PotteryTreeOpts tree_opts = {
+            .base.width  = POTTERY_GROW(),
+            .base.height = POTTERY_FIXED(180),
+            .model       = &tree_model.base,
+        };
+        pottery_mold_tree(kiln, "src_tree",
+            &app->selected_tree, &tree_opts);
     }
 }
 

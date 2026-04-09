@@ -73,11 +73,28 @@ typedef struct {
     int   anchor_row;       /* first visible row (for virtualisation) */
 } PotteryListState;
 
+/* Nœud visible dans le treeview (calculé chaque frame) */
 typedef struct {
-    float              scroll_y;
-    /* expand/collapse bitmask — up to 64 top-level nodes inline,
-       heap-allocated beyond that (future) */
-    uint64_t           expanded;
+    int   model_row;   /* index dans le modèle                    */
+    int   level;       /* profondeur (0 = racine)                 */
+    bool  has_children;
+    bool  expanded;
+} PotteryTreeVisibleNode;
+
+#define POTTERY_TREE_MAX_VISIBLE 4096
+#define POTTERY_TREE_MAX_EXPANDED 512
+
+typedef struct {
+    float  scroll_y;
+
+    /* Table des nœuds expandés (model_row → bool), heap-alloué */
+    int   *expanded_rows;   /* tableau de model_row expandés       */
+    int    expanded_count;
+    int    expanded_cap;
+
+    /* Cache des nœuds visibles (recalculé chaque frame) */
+    PotteryTreeVisibleNode *visible;   /* alloué une fois           */
+    int                     visible_count;
 } PotteryTreeState;
 
 /* ---- Common widget state header ---- */

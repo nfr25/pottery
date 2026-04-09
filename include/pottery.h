@@ -390,24 +390,16 @@ bool pottery_mold_list (PotteryKiln *kiln, const char *id,
 
 /* --- Tree view --- */
 
-typedef struct PotteryTreeNode PotteryTreeNode;
-struct PotteryTreeNode {
-    const char         *label;
-    PotteryIcon        *icon;
-    PotteryTreeNode    *children;
-    int                 child_count;
-    void               *userdata;
-};
-
 typedef struct {
     PotteryMoldOpts  base;
-    float            indent;    /* pixels per level, 0 = default */
+    PotteryModel    *model;       /* source de données (child_count + parent_row requis) */
+    float            indent;      /* pixels par niveau, 0 = 16px par défaut             */
+    float            row_height;  /* 0 = auto depuis font metrics                       */
 } PotteryTreeOpts;
 
-/* Returns true when selection changed; *selected points into tree */
+/* Returns true when selection changed; *selected_row = model_row sélectionné */
 bool pottery_mold_tree (PotteryKiln *kiln, const char *id,
-                        PotteryTreeNode *root, int root_count,
-                        PotteryTreeNode **selected,
+                        int *selected_row,
                         const PotteryTreeOpts *opts);
 
 /* =========================================================================
