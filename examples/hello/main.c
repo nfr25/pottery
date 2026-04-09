@@ -119,6 +119,11 @@ static void build_ui(PotteryKiln *kiln, AppState *app,
                     app->dark_mode ? "Light mode" : "Dark mode", &theme_opts))
                 app->dark_mode = !app->dark_mode;
 
+                 /* Combo */
+            static const char *languages[] = { "C", "C++", "Rust", "Zig", "Odin" };
+            PotteryComboOpts combo_opts = { .base.width = POTTERY_FIXED(120) };
+            pottery_mold_combo(kiln, "lang_combo",
+            languages, 5, &app->language, &combo_opts);
             pottery_mold_spacer(kiln, 0);
 
             /* Bouton Quit avec icône X */
@@ -148,13 +153,8 @@ static void build_ui(PotteryKiln *kiln, AppState *app,
         PotteryLabelOpts gl = { .base.width = POTTERY_GROW(), .wrap = true };
         pottery_mold_label(kiln, "greeting", greeting, &gl);
 
-        /* Combo */
-        static const char *languages[] = { "C", "C++", "Rust", "Zig", "Odin" };
-        PotteryComboOpts combo_opts = { .base.width = POTTERY_FIXED(120) };
-        pottery_mold_combo(kiln, "lang_combo",
-            languages, 5, &app->language, &combo_opts);
+       
 
-        pottery_mold_separator(kiln, true);
 
         /* List view avec PotteryTableModel */
         /* List view multi-colonnes */
@@ -189,7 +189,7 @@ static void build_ui(PotteryKiln *kiln, AppState *app,
 
         PotteryListOpts list_opts = {
             .base.width    = POTTERY_GROW(),
-            .base.height   = POTTERY_GROW(),
+            .base.height   = POTTERY_FIXED(220),
             .model         = &table_model.base,
             .columns       = cols,
             .column_count  = 3,
