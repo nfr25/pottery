@@ -53,7 +53,8 @@ typedef struct {
     char  name[128];
     int   click_count;
     bool  dark_mode;
-    int   language;    /* pour le combo */
+    int   language;
+    int   selected_file;
 } AppState;
 
 /* =========================================================================
@@ -146,11 +147,54 @@ static void build_ui(PotteryKiln *kiln, AppState *app,
         PotteryLabelOpts gl = { .base.width = POTTERY_GROW(), .wrap = true };
         pottery_mold_label(kiln, "greeting", greeting, &gl);
 
-        /* Combo de test */
+        /* Combo */
         static const char *languages[] = { "C", "C++", "Rust", "Zig", "Odin" };
         PotteryComboOpts combo_opts = { .base.width = POTTERY_FIXED(120) };
         pottery_mold_combo(kiln, "lang_combo",
             languages, 5, &app->language, &combo_opts);
+
+        pottery_mold_separator(kiln, true);
+
+        /* List view avec PotteryTableModel */
+        /* List view multi-colonnes */
+        static const char *files[] = {
+            "pottery_kiln.c",    "Core",   "Contexte principal",
+            "pottery_state.c",   "Core",   "State map widgets",
+            "pottery_renderer.c","Core",   "Cairo render commands",
+            "pottery_text.c",    "Core",   "Pango bridge",
+            "pottery_svg.c",     "Core",   "librsvg icons",
+            "pottery_input.c",   "Core",   "Input par frame",
+            "pottery_vessel.c",  "Layout", "Clay containers",
+            "pottery_glaze.c",   "Theme",  "Light et dark",
+            "pottery_button.c",  "Mold",   "Bouton cliquable",
+            "pottery_label.c",   "Mold",   "Texte + utilitaires",
+            "pottery_edit.c",    "Mold",   "Champ de saisie",
+            "pottery_combo.c",   "Mold",   "Dropdown",
+            "pottery_list.c",    "Mold",   "Liste virtualisee",
+        };
+        static const char *headers[] = { "Fichier", "Categorie", "Description" };
+        static PotteryTableModel table_model;
+        static bool model_init = false;
+        if (!model_init) {
+            pottery_table_model_init(&table_model, files, headers, 13, 3);
+            model_init = true;
+        }
+
+        static PotteryListColumn cols[] = {
+            { "Fichier",     150.0f, POTTERY_ALIGN_START },
+            { "Categorie",    80.0f, POTTERY_ALIGN_START },
+            { "Description",   0.0f, POTTERY_ALIGN_START }, /* 0 = GROW */
+        };
+
+        PotteryListOpts list_opts = {
+            .base.width    = POTTERY_GROW(),
+            .base.height   = POTTERY_GROW(),
+            .model         = &table_model.base,
+            .columns       = cols,
+            .column_count  = 3,
+            .show_header   = true,
+        };
+        pottery_mold_list(kiln, "file_list", &app->selected_file, &list_opts);
     }
 }
 

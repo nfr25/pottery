@@ -289,7 +289,8 @@ typedef struct {
         struct {
             const char *text;
             bool        selected;
-            int         col;
+            int         col;       /* -1 = header, >=0 = data row/col */
+            bool        is_cell;   /* true = cellule multi-col (pas de fond propre) */
         } list_row;
         struct {
             const char  *label;
@@ -324,6 +325,12 @@ static inline PotteryCustomPayload *pottery_payload_alloc(PotteryPayloadPool *po
     if (pool->count >= POTTERY_PAYLOAD_POOL_MAX) return NULL;
     return &pool->slots[pool->count++];
 }
+
+/* pottery_table_model_init est défini dans pottery_list.c */
+void pottery_table_model_init(PotteryTableModel *m,
+                               const char * const *data,
+                               const char * const *headers,
+                               int rows, int cols);
 
 /* =========================================================================
  * PotteryKiln  (full private definition)

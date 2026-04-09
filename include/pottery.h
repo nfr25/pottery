@@ -314,6 +314,59 @@ bool pottery_mold_combo (PotteryKiln *kiln, const char *id,
                          const char **items, int item_count,
                          int *selected, const PotteryComboOpts *opts);
 
+/* =========================================================================
+ * PotteryModel — modèle de données abstrait (inspiré Qt MVC)
+ *
+ * L'application implémente les callbacks nécessaires.
+ * Pottery ne touche jamais aux données directement.
+ * Le même modèle peut alimenter un listview ET un treeview.
+ * ========================================================================= */
+
+typedef struct PotteryModel {
+    /* --- Données tabulaires (list + tree) --- */
+
+    /* Nombre de lignes de premier niveau */
+    int         (*row_count)   (struct PotteryModel *model);
+
+    /* Nombre de colonnes */
+    int         (*col_count)   (struct PotteryModel *model);
+
+    /* Texte d'une cellule */
+    const char *(*get_cell)    (struct PotteryModel *model, int row, int col);
+
+    /* En-tête de colonne (NULL = pas d'en-tête) */
+    const char *(*get_header)  (struct PotteryModel *model, int col);
+
+    /* Icône optionnelle pour une ligne (NULL = pas d'icône) */
+    PotteryIcon *(*get_icon)   (struct PotteryModel *model, int row);
+
+    /* --- Données hiérarchiques (tree uniquement) --- */
+
+    /* Nombre d'enfants d'une ligne (-1 = ligne plate, pas de tree) */
+    int         (*child_count) (struct PotteryModel *model, int row);
+
+    /* Index du parent (-1 = racine) */
+    int         (*parent_row)  (struct PotteryModel *model, int row);
+
+    /* --- Données applicatives opaques --- */
+    void *userdata;
+} PotteryModel;
+
+/* Helpers pour créer un modèle simple depuis un tableau 2D de strings */
+typedef struct {
+    PotteryModel        base;       /* DOIT être le premier champ */
+    const char * const *data;       /* tableau[row][col] */
+    const char * const *headers;    /* tableau[col], NULL = pas d'en-tête */
+    int                 rows;
+    int                 cols;
+} PotteryTableModel;
+
+/* Initialise un PotteryTableModel depuis des données statiques */
+void pottery_table_model_init (PotteryTableModel *m,
+                                const char * const *data,
+                                const char * const *headers,
+                                int rows, int cols);
+
 /* --- List view --- */
 
 typedef struct {
@@ -323,14 +376,12 @@ typedef struct {
 } PotteryListColumn;
 
 typedef struct {
-    PotteryMoldOpts     base;
-    PotteryListColumn  *columns;
-    int                 column_count;
-    int                 row_count;
-    /* Callback to fill one cell — keeps list view decoupled from data model */
-    const char        *(*get_cell)(void *userdata, int row, int col);
-    void               *userdata;
-    float               row_height; /* 0 = auto from font metrics */
+    PotteryMoldOpts    base;
+    PotteryModel      *model;       /* source de données               */
+    PotteryListColumn *columns;     /* description des colonnes        */
+    int                column_count;/* 0 = une colonne auto            */
+    bool               show_header; /* afficher la ligne d'en-tête     */
+    float              row_height;  /* 0 = auto depuis font metrics    */
 } PotteryListOpts;
 
 /* Returns true when selection changed; *selected_row updated */

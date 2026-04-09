@@ -476,24 +476,45 @@ static void draw_list_row(PotteryRenderer *rend, Clay_BoundingBox bb,
     cairo_t      *cr    = rend->cr;
     PotteryGlaze *glaze = rend->glaze;
 
-    if (p->list_row.selected) {
-        set_color(cr, &glaze->primary);
-        cairo_rectangle(cr, bb.x, bb.y, bb.width, bb.height);
-        cairo_fill(cr);
+    bool is_header = (p->list_row.col == -1);
+
+    /* Fond : en-tête ou sélection.
+     * is_cell=true → cellule multi-col, le fond est sur le container parent */
+    if (!p->list_row.is_cell) {
+        if (is_header) {
+            set_color(cr, &glaze->surface_alt);
+            cairo_rectangle(cr, bb.x, bb.y, bb.width, bb.height);
+            cairo_fill(cr);
+            set_color(cr, &glaze->border);
+            cairo_set_line_width(cr, 1.0f);
+            cairo_move_to(cr, bb.x,            bb.y + bb.height - 0.5f);
+            cairo_line_to(cr, bb.x + bb.width, bb.y + bb.height - 0.5f);
+            cairo_stroke(cr);
+        } else if (p->list_row.selected) {
+            set_color(cr, &glaze->primary);
+            cairo_rectangle(cr, bb.x, bb.y, bb.width, bb.height);
+            cairo_fill(cr);
+        }
     }
 
-    const PotteryColor *tc = p->list_row.selected
-        ? &glaze->primary_text : &glaze->text_primary;
+    /* Couleur texte */
+    const PotteryColor *tc = is_header
+        ? &glaze->text_primary
+        : (p->list_row.selected ? &glaze->primary_text : &glaze->text_primary);
+
+    PangoFontDescription *font = is_header
+        ? rend->text->font_title
+        : rend->text->font_body;
 
     float tx = bb.x + glaze->padding_x;
-    float ty = bb.y + (bb.height - 14.0f) * 0.5f; /* approx center */
+    float ty = bb.y + (bb.height - 14.0f) * 0.5f;
 
-    cairo_move_to(cr, tx, ty);
     if (p->list_row.text) {
+        cairo_move_to(cr, tx, ty);
         pottery_text_draw(cr, rend->text,
                           p->list_row.text,
                           (int)strlen(p->list_row.text),
-                          rend->text->font_body, tc);
+                          font, tc);
     }
 }
 

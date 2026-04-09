@@ -228,6 +228,13 @@ bool pottery_kiln_begin_frame(PotteryKiln *kiln) {
             kiln->state_map.entries[i].alive = false;
     }
 
+    /* Informer Clay du scroll molette — nécessaire pour les clip elements */
+    Clay_UpdateScrollContainers(
+        true,  /* enableDragScrolling */
+        (Clay_Vector2){ kiln->input.wheel_dx, kiln->input.wheel_dy },
+        0.016f /* deltaTime ~ 60fps */
+    );
+
     Clay_BeginLayout();
     return true;
 }

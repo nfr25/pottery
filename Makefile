@@ -33,6 +33,7 @@ SRC_CORE := \
     src/molds/pottery_label.c  \
     src/molds/pottery_edit.c   \
     src/molds/pottery_combo.c  \
+    src/molds/pottery_list.c   \
     src/backends/pottery_win32.c
 #   src/molds/pottery_combo.c
 #   src/molds/pottery_list.c
