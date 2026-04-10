@@ -90,12 +90,12 @@ bool pottery_mold_list(PotteryKiln *kiln, const char *id,
                        opts->base.height.value == 0)
         ? POTTERY_GROW() : opts->base.height;
 
-    /* ---- 3. Container scrollable Clay ---- */
-    char scroll_id[128];
-    snprintf(scroll_id, sizeof(scroll_id), "%s__scroll__", id);
+    /* ---- 3. Vessel externe (header fixe + scroll container) ---- */
+    char outer_id[128];
+    snprintf(outer_id, sizeof(outer_id), "%s__outer__", id);
 
-    Clay_ElementDeclaration scroll_decl = {0};
-    scroll_decl.layout = (Clay_LayoutConfig){
+    Clay_ElementDeclaration outer_decl = {0};
+    outer_decl.layout = (Clay_LayoutConfig){
         .sizing = {
             .width  = (w.type == POTTERY_SIZING_GROW)  ? CLAY_SIZING_GROW()
                     : (w.type == POTTERY_SIZING_FIXED)  ? CLAY_SIZING_FIXED(w.value)
@@ -106,85 +106,124 @@ bool pottery_mold_list(PotteryKiln *kiln, const char *id,
         },
         .layoutDirection = CLAY_TOP_TO_BOTTOM,
     };
-    scroll_decl.clip = (Clay_ClipElementConfig){
-        .vertical    = true,
-        .horizontal  = false,
-        .childOffset = Clay_GetScrollOffset(),
-    };
-
-    Clay__OpenElementWithId(POTTERY_ID(scroll_id));
-    Clay__ConfigureOpenElement(scroll_decl);
+    Clay__OpenElementWithId(POTTERY_ID(outer_id));
+    Clay__ConfigureOpenElement(outer_decl);
 
     /* ---- 4. En-têtes (optionnel) ---- */
     if (opts->show_header && model->get_header) {
         char header_id[128];
         snprintf(header_id, sizeof(header_id), "%s__header__", id);
 
-        PotteryCustomPayload *hp = pottery_payload_alloc(&kiln->payload_pool);
-        if (hp) {
-            hp->type              = POTTERY_CUSTOM_LIST_ROW;
-            hp->state             = state;
-            hp->glaze             = &kiln->glaze;
-            hp->list_row.text     = model->get_header(model, 0);
-            hp->list_row.selected = false;
-            hp->list_row.col      = -1;  /* -1 = header row */
+        if (total_cols == 1) {
+            /* Mono-colonne : un seul élément */
+            PotteryCustomPayload *hp = pottery_payload_alloc(&kiln->payload_pool);
+            if (hp) {
+                hp->type              = POTTERY_CUSTOM_LIST_ROW;
+                hp->state             = state;
+                hp->glaze             = &kiln->glaze;
+                hp->list_row.text     = model->get_header(model, 0);
+                hp->list_row.selected = false;
+                hp->list_row.col      = -1;
+                hp->list_row.is_cell  = false;
 
-            Clay_ElementDeclaration hd = {0};
-            hd.layout = (Clay_LayoutConfig){
-                .sizing = {
-                    .width  = CLAY_SIZING_GROW(),
-                    .height = CLAY_SIZING_FIXED(row_h),
-                },
+                Clay_ElementDeclaration hd = {0};
+                hd.layout = (Clay_LayoutConfig){
+                    .sizing = { .width = CLAY_SIZING_GROW(),
+                                .height = CLAY_SIZING_FIXED(row_h) },
+                };
+                hd.custom.customData = hp;
+                Clay__OpenElementWithId(POTTERY_ID(header_id));
+                Clay__ConfigureOpenElement(hd);
+                Clay__CloseElement();
+            }
+        } else {
+            /* Multi-colonnes : vessel horizontal */
+            Clay_ElementDeclaration hrow = {0};
+            hrow.layout = (Clay_LayoutConfig){
+                .sizing = { .width  = CLAY_SIZING_GROW(),
+                             .height = CLAY_SIZING_FIXED(row_h) },
+                .layoutDirection = CLAY_LEFT_TO_RIGHT,
             };
-            /* Fond légèrement différent pour l'en-tête */
-            hd.backgroundColor = (Clay_Color){
+            hrow.backgroundColor = (Clay_Color){
                 (uint8_t)(kiln->glaze.surface_alt.r * 255),
                 (uint8_t)(kiln->glaze.surface_alt.g * 255),
                 (uint8_t)(kiln->glaze.surface_alt.b * 255),
                 255,
             };
-            hd.custom.customData = hp;
-
             Clay__OpenElementWithId(POTTERY_ID(header_id));
-            Clay__ConfigureOpenElement(hd);
-            Clay__CloseElement();
+            Clay__ConfigureOpenElement(hrow);
+
+            for (int col = 0; col < total_cols; col++) {
+                char hcell_id[160];
+                snprintf(hcell_id, sizeof(hcell_id), "%s__hcell__%d", id, col);
+
+                const char *htext = model->get_header(model, col);
+                float col_w = 0.0f;
+                if (opts->columns && col < opts->column_count)
+                    col_w = opts->columns[col].width;
+
+                PotteryCustomPayload *hp = pottery_payload_alloc(&kiln->payload_pool);
+                if (!hp) break;
+                hp->type              = POTTERY_CUSTOM_LIST_ROW;
+                hp->state             = state;
+                hp->glaze             = &kiln->glaze;
+                hp->list_row.text     = htext;
+                hp->list_row.selected = false;
+                hp->list_row.col      = -1;   /* header */
+                hp->list_row.is_cell  = false; /* dessiner fond header */
+
+                Clay_ElementDeclaration hd = {0};
+                hd.layout = (Clay_LayoutConfig){
+                    .sizing = {
+                        .width  = col_w > 0.0f
+                                    ? CLAY_SIZING_FIXED(col_w)
+                                    : CLAY_SIZING_GROW(),
+                        .height = CLAY_SIZING_FIXED(row_h),
+                    },
+                };
+                hd.custom.customData = hp;
+                Clay__OpenElementWithId(POTTERY_ID(hcell_id));
+                Clay__ConfigureOpenElement(hd);
+                Clay__CloseElement();
+            }
+
+            Clay__CloseElement(); /* header row */
         }
     }
 
-    /* ---- 5. Virtualisation ---- */
-    /*
-     * On récupère le bounding box du scroll container du frame précédent
-     * pour calculer quelles lignes sont visibles.
+    /* ---- 3b. Container scrollable Clay ---- */
+    char scroll_id[128];
+    snprintf(scroll_id, sizeof(scroll_id), "%s__scroll__", id);
+
+    Clay_ElementDeclaration scroll_decl = {0};
+    scroll_decl.layout = (Clay_LayoutConfig){
+        .sizing = {
+            .width  = CLAY_SIZING_GROW(),
+            .height = CLAY_SIZING_GROW(),  /* prend l'espace restant après header */
+        },
+        .layoutDirection = CLAY_TOP_TO_BOTTOM,
+    };
+    /* childOffset géré par Clay_UpdateScrollContainers automatiquement */
+    scroll_decl.clip = (Clay_ClipElementConfig){
+        .vertical   = true,
+        .horizontal = false,
+        /* childOffset sera mis à jour après l'ouverture */
+    };
+
+    Clay__OpenElementWithId(POTTERY_ID(scroll_id));
+    /* Maintenant que l'élément est ouvert, Clay_GetScrollOffset()
+     * retourne l'offset correct pour CE container */
+    scroll_decl.clip.childOffset = Clay_GetScrollOffset();
+    Clay__ConfigureOpenElement(scroll_decl);
+
+    /* ---- 5. Rendu de toutes les lignes (virtualisation désactivée) ----
+     * Clay gère le scroll entièrement via clip + UpdateScrollContainers.
+     * La virtualisation sera réactivée une fois le scroll stable.
      */
-    Clay_ElementData scroll_data = Clay_GetElementData(POTTERY_ID(scroll_id));
-    float visible_h = scroll_data.found
-        ? scroll_data.boundingBox.height
-        : 200.0f;
+    int first_row = 0;
+    int last_row  = total_rows;
 
-    float scroll_y   = state->list.scroll_y;
-    int   first_row  = (int)(scroll_y / row_h);
-    int   visible_n  = (int)ceilf(visible_h / row_h) + 1;  /* +1 pour la ligne partielle */
-    int   last_row   = first_row + visible_n;
-    if (first_row < 0)          first_row = 0;
-    if (last_row  > total_rows) last_row  = total_rows;
-
-    /* Spacer du dessus pour simuler les lignes non rendues */
-    if (first_row > 0) {
-        char top_id[128];
-        snprintf(top_id, sizeof(top_id), "%s__top__", id);
-        Clay_ElementDeclaration sp = {0};
-        sp.layout = (Clay_LayoutConfig){
-            .sizing = {
-                .width  = CLAY_SIZING_GROW(),
-                .height = CLAY_SIZING_FIXED(first_row * row_h),
-            },
-        };
-        Clay__OpenElementWithId(POTTERY_ID(top_id));
-        Clay__ConfigureOpenElement(sp);
-        Clay__CloseElement();
-    }
-
-    /* ---- 6. Lignes visibles ---- */
+    /* ---- 6. Toutes les lignes ---- */
     for (int row = first_row; row < last_row; row++) {
         char row_id[128];
         snprintf(row_id, sizeof(row_id), "%s__row__%d", id, row);
@@ -291,39 +330,12 @@ bool pottery_mold_list(PotteryKiln *kiln, const char *id,
         }
     }
 
-    /* Spacer du bas */
-    int remaining = total_rows - last_row;
-    if (remaining > 0) {
-        char bot_id[128];
-        snprintf(bot_id, sizeof(bot_id), "%s__bot__", id);
-        Clay_ElementDeclaration sp = {0};
-        sp.layout = (Clay_LayoutConfig){
-            .sizing = {
-                .width  = CLAY_SIZING_GROW(),
-                .height = CLAY_SIZING_FIXED(remaining * row_h),
-            },
-        };
-        Clay__OpenElementWithId(POTTERY_ID(bot_id));
-        Clay__ConfigureOpenElement(sp);
-        Clay__CloseElement();
-    }
+    /* Spacer bas supprimé — Clay calcule la hauteur depuis les lignes réelles */
 
     Clay__CloseElement(); /* scroll container */
+    Clay__CloseElement(); /* outer vessel */
 
-    /* ---- 7. Scroll à la molette ---- */
-    if (scroll_data.found) {
-        Clay_BoundingBox sb = scroll_data.boundingBox;
-        bool over = (in->mouse_x >= (int)sb.x &&
-                     in->mouse_x <= (int)(sb.x + sb.width) &&
-                     in->mouse_y >= (int)sb.y &&
-                     in->mouse_y <= (int)(sb.y + sb.height));
-        if (over && in->wheel_dy != 0.0f) {
-            float max_scroll = fmaxf(0.0f, total_rows * row_h - visible_h);
-            state->list.scroll_y -= in->wheel_dy * row_h * 3.0f;
-            if (state->list.scroll_y < 0.0f)         state->list.scroll_y = 0.0f;
-            if (state->list.scroll_y > max_scroll)    state->list.scroll_y = max_scroll;
-        }
-    }
+    /* Scroll géré par Clay via Clay_UpdateScrollContainers dans pottery_kiln.c */
 
     return changed;
 }

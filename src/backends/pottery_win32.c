@@ -157,6 +157,8 @@ static LRESULT CALLBACK pottery_wndproc(HWND hwnd, UINT msg,
             return 0;
 
         case WM_MOUSEWHEEL: {
+            /* WHEEL_DELTA positif = molette vers le haut.
+             * Clay scroll: positif = vers le bas → on inverse. */
             float delta = (float)GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA;
             evt.type     = POTTERY_EVENT_MOUSE_WHEEL;
             evt.wheel.dx = 0.0f;
