@@ -291,11 +291,12 @@ int main(void) {
     PotteryGlaze light = pottery_glaze_light();
 
     PotteryKiln *kiln = pottery_kiln_create(&(PotteryKilnDesc){
-        .title   = "Hello - Pottery",
-        .width   = 520,
-        .height  = 320,
-        .backend = backend,
-        .glaze   = &light,
+        .title      = "Hello - Pottery",
+        .width      = 520,
+        .height     = 320,
+        .backend    = backend,
+        .glaze      = &light,
+        .statusbar  = true,
     });
     if (!kiln) return 1;
 
@@ -325,6 +326,13 @@ int main(void) {
             last_dark = app.dark_mode;
         }
         build_ui(kiln, &app, icon_check, icon_moon, icon_sun, icon_quit);
+
+        /* Statusbar */
+        pottery_statusbar_set(kiln, 0, "Ready", 0);
+        char sel_buf[64];
+        snprintf(sel_buf, sizeof(sel_buf), "Selected: %d", app.selected_file);
+        pottery_statusbar_set(kiln, 1, sel_buf, 160.0f);
+        pottery_statusbar_set(kiln, 2, "Pottery v0.1", 120.0f);
         pottery_kiln_end_frame(kiln);
     }
 

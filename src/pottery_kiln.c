@@ -160,6 +160,8 @@ PotteryKiln *pottery_kiln_create(const PotteryKilnDesc *desc) {
 
     Clay_SetMeasureTextFunction(pottery_text_measure, &kiln->text);
 
+    kiln->has_statusbar = desc->statusbar;
+
     return kiln;
 }
 
@@ -247,6 +249,11 @@ void pottery_kiln_end_frame(PotteryKiln *kiln) {
     const PotteryColor *bg = &kiln->glaze.background;
     cairo_set_source_rgba(kiln->cr, bg->r, bg->g, bg->b, bg->a);
     cairo_paint(kiln->cr);
+
+    /* ---- Statusbar Clay element (rendu automatique) ---- */
+    if (kiln->has_statusbar) {
+        pottery_kiln_render_statusbar(kiln);
+    }
 
     /* Walk render commands */
     PotteryRenderer rend = {

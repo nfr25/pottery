@@ -344,10 +344,23 @@ static inline PotteryCustomPayload *pottery_payload_alloc(PotteryPayloadPool *po
 }
 
 /* pottery_table_model_init est défini dans pottery_list.c */
+
+/* Rendu interne de la statusbar — appelé par pottery_kiln_end_frame */
+void pottery_kiln_render_statusbar(PotteryKiln *kiln);
 void pottery_table_model_init(PotteryTableModel *m,
                                const char * const *data,
                                const char * const *headers,
                                int rows, int cols);
+
+/* =========================================================================
+ * Statusbar state
+ * ========================================================================= */
+
+typedef struct {
+    char  text[256];
+    float width_hint;   /* 0 = GROW */
+    bool  used;
+} PotteryStatusbarSection;
 
 /* =========================================================================
  * PotteryKiln  (full private definition)
@@ -376,6 +389,10 @@ struct PotteryKiln {
 
     /* Payload pool (réinitialisé chaque frame) */
     PotteryPayloadPool payload_pool;
+
+    /* Statusbar */
+    bool                   has_statusbar;
+    PotteryStatusbarSection statusbar[POTTERY_STATUSBAR_MAX_SECTIONS];
 
     /* Frame state */
     int              width, height;

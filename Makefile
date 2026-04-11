@@ -29,6 +29,7 @@ SRC_CORE := \
     src/pottery_svg.c     \
     src/pottery_input.c   \
     src/pottery_vessel.c  \
+    src/pottery_statusbar.c\
     src/molds/pottery_button.c \
     src/molds/pottery_label.c  \
     src/molds/pottery_edit.c   \
