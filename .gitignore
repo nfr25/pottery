@@ -1,0 +1,38 @@
+# --- Exécutables et Binaires ---
+*.exe
+*.out
+*.app
+bin/
+obj/
+
+# --- Fichiers Objets et Compilateur ---
+*.o
+*.obj
+*.pdb
+*.ilk
+*.idb
+
+# --- Base de données (Fichiers locaux) ---
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.bim
+*.shp
+*.dbf
+*.shx
+*.prj
+*.cpg
+*.sbn
+*.sbx
+
+# --- IDE (Visual Studio / VS Code) ---
+.vs/
+*.user
+*.suo
+*.sln.docstates
+.vscode/
+
+# --- Divers ---
+*.log
+*.tmp

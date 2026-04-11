@@ -216,14 +216,41 @@ bool pottery_mold_list(PotteryKiln *kiln, const char *id,
     scroll_decl.clip.childOffset = Clay_GetScrollOffset();
     Clay__ConfigureOpenElement(scroll_decl);
 
-    /* ---- 5. Rendu de toutes les lignes (virtualisation désactivée) ----
-     * Clay gère le scroll entièrement via clip + UpdateScrollContainers.
-     * La virtualisation sera réactivée une fois le scroll stable.
+    /* ---- 5. Virtualisation ----
+     * On lit la position de scroll depuis Clay pour calculer
+     * quelles lignes sont visibles dans le viewport.
      */
-    int first_row = 0;
-    int last_row  = total_rows;
+    Clay_ElementData scroll_data = Clay_GetElementData(POTTERY_ID(scroll_id));
+    Clay_ElementId scroll_eid = Clay_GetElementId(
+        (Clay_String){ .length=(int)strlen(scroll_id), .chars=scroll_id });
+    Clay_ScrollContainerData scd = Clay_GetScrollContainerData(scroll_eid);
 
-    /* ---- 6. Toutes les lignes ---- */
+    float scroll_y = (scd.found && scd.scrollPosition)
+        ? -scd.scrollPosition->y : 0.0f;
+    if (scroll_y < 0.0f) scroll_y = 0.0f;
+
+    /* Hauteur visible du viewport */
+    float visible_h = scroll_data.found
+        ? scroll_data.boundingBox.height : 200.0f;
+
+    int first_row = (int)(scroll_y / row_h);
+    int last_row  = first_row + (int)ceilf(visible_h / row_h) + 2;
+    if (first_row < 0)          first_row = 0;
+    if (last_row  > total_rows) last_row  = total_rows;
+
+    /* ---- 6. Spacer haut (lignes au-dessus du viewport) ---- */
+    if (first_row > 0) {
+        char top_id[128];
+        snprintf(top_id, sizeof(top_id), "%s__top__", id);
+        Clay_ElementDeclaration sp = {0};
+        sp.layout.sizing.width  = CLAY_SIZING_GROW();
+        sp.layout.sizing.height = CLAY_SIZING_FIXED(first_row * row_h);
+        Clay__OpenElementWithId(POTTERY_ID(top_id));
+        Clay__ConfigureOpenElement(sp);
+        Clay__CloseElement();
+    }
+
+    /* ---- 7. Lignes visibles ---- */
     for (int row = first_row; row < last_row; row++) {
         char row_id[128];
         snprintf(row_id, sizeof(row_id), "%s__row__%d", id, row);
@@ -330,7 +357,17 @@ bool pottery_mold_list(PotteryKiln *kiln, const char *id,
         }
     }
 
-    /* Spacer bas supprimé — Clay calcule la hauteur depuis les lignes réelles */
+    /* ---- 8. Spacer bas (lignes sous le viewport) ---- */
+    if (last_row < total_rows) {
+        char bot_id[128];
+        snprintf(bot_id, sizeof(bot_id), "%s__bot__", id);
+        Clay_ElementDeclaration sp = {0};
+        sp.layout.sizing.width  = CLAY_SIZING_GROW();
+        sp.layout.sizing.height = CLAY_SIZING_FIXED((total_rows - last_row) * row_h);
+        Clay__OpenElementWithId(POTTERY_ID(bot_id));
+        Clay__ConfigureOpenElement(sp);
+        Clay__CloseElement();
+    }
 
     Clay__CloseElement(); /* scroll container */
     Clay__CloseElement(); /* outer vessel */

@@ -182,11 +182,37 @@ bool pottery_mold_tree(PotteryKiln *kiln, const char *id,
     scroll_decl.clip.childOffset = Clay_GetScrollOffset();
     Clay__ConfigureOpenElement(scroll_decl);
 
-    /* ---- 6. Rendu complet (virtualisation désactivée) ---- */
-    int first_vis = 0;
-    int last_vis  = total_visible;
+    /* ---- 6. Virtualisation ---- */
+    Clay_ElementId scroll_eid = Clay_GetElementId(
+        (Clay_String){ .length=(int)strlen(scroll_id), .chars=scroll_id });
+    Clay_ScrollContainerData scd = Clay_GetScrollContainerData(scroll_eid);
+
+    float scroll_y = (scd.found && scd.scrollPosition)
+        ? -scd.scrollPosition->y : 0.0f;
+    if (scroll_y < 0.0f) scroll_y = 0.0f;
+
+    Clay_ElementData scroll_data = Clay_GetElementData(POTTERY_ID(scroll_id));
+    float visible_h = scroll_data.found
+        ? scroll_data.boundingBox.height : 200.0f;
+
+    int first_vis = (int)(scroll_y / row_h);
+    int last_vis  = first_vis + (int)ceilf(visible_h / row_h) + 2;
+    if (first_vis < 0)             first_vis = 0;
+    if (last_vis  > total_visible) last_vis  = total_visible;
 
 
+
+    /* Spacer haut */
+    if (first_vis > 0) {
+        char top_id[128];
+        snprintf(top_id, sizeof(top_id), "%s__top__", id);
+        Clay_ElementDeclaration sp = {0};
+        sp.layout.sizing.width  = CLAY_SIZING_GROW();
+        sp.layout.sizing.height = CLAY_SIZING_FIXED(first_vis * row_h);
+        Clay__OpenElementWithId(POTTERY_ID(top_id));
+        Clay__ConfigureOpenElement(sp);
+        Clay__CloseElement();
+    }
 
     /* ---- 7. Lignes visibles ---- */
     for (int vi = first_vis; vi < last_vis; vi++) {
@@ -263,7 +289,17 @@ bool pottery_mold_tree(PotteryKiln *kiln, const char *id,
 
     Clay__CloseElement(); /* scroll container */
 
-    /* Scroll géré par Clay via Clay_UpdateScrollContainers dans pottery_kiln.c */
+    /* Spacer bas */
+    if (last_vis < total_visible) {
+        char bot_id[128];
+        snprintf(bot_id, sizeof(bot_id), "%s__bot__", id);
+        Clay_ElementDeclaration sp = {0};
+        sp.layout.sizing.width  = CLAY_SIZING_GROW();
+        sp.layout.sizing.height = CLAY_SIZING_FIXED((total_visible - last_vis) * row_h);
+        Clay__OpenElementWithId(POTTERY_ID(bot_id));
+        Clay__ConfigureOpenElement(sp);
+        Clay__CloseElement();
+    }
 
     return changed;
 }
