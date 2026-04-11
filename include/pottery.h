@@ -154,6 +154,22 @@ PotteryGlaze  pottery_glaze_dark  (void);
  * Kiln  (main context)
  * ========================================================================= */
 
+/* Nombre max d'éléments toolbar */
+#define POTTERY_TOOLBAR_MAX_ELEMS 64
+
+/* Callback : reçoit l'id du bouton cliqué */
+#ifndef POTTERY_TOOLBAR_CB_DEFINED
+#define POTTERY_TOOLBAR_CB_DEFINED
+typedef void (*PotteryToolbarCb)(int btn_id, void *userdata);
+#endif
+
+/* Fonction icône Cairo : dessine centrée en (cx, cy), mode = état courant */
+/* PotteryToolbarIconFn : utiliser pottery_toolbar_icon_fn_t dans pottery_internal.h */
+typedef void (*PotteryToolbarIconFn)(void *cr, float cx, float cy, int mode);
+
+/* Forward — défini dans pottery_internal.h */
+typedef struct PotteryIcon PotteryIcon;
+
 typedef struct PotteryKilnDesc {
     const char     *title;
     int             width;
@@ -162,6 +178,7 @@ typedef struct PotteryKilnDesc {
     PotteryGlaze   *glaze;     /* NULL → pottery_glaze_light() */
     int             max_widgets;/* 0 → default 1024            */
     bool            statusbar;  /* true = afficher une statusbar */
+    bool            toolbar;    /* true = afficher une toolbar   */
 } PotteryKilnDesc;
 
 PotteryKiln *pottery_kiln_create  (const PotteryKilnDesc *desc);
@@ -404,6 +421,40 @@ bool pottery_mold_tree (PotteryKiln *kiln, const char *id,
                         const PotteryTreeOpts *opts);
 
 /* =========================================================================
+ * Toolbar
+ * ========================================================================= */
+
+/* Flags boutons */
+#define POTTERY_BTN_NORMAL    0x00
+#define POTTERY_BTN_TOGGLE    0x01
+#define POTTERY_BTN_DISABLED  0x02
+#define POTTERY_BTN_SPLIT     0x04
+
+/* ID base pour les clics sur la flèche des split buttons */
+#define POTTERY_TB_SPLIT_BASE 0x2000
+
+/* --- API toolbar --- */
+void pottery_toolbar_enable           (PotteryKiln *kiln); /* activer la toolbar */
+void pottery_toolbar_add_btn          (PotteryKiln *kiln, int id,
+                                       const char *label, int flags);
+void pottery_toolbar_add_icon         (PotteryKiln *kiln, int id,
+                                       PotteryToolbarIconFn fn,
+                                       const char *tooltip, int flags);
+void pottery_toolbar_add_icon_multimode(PotteryKiln *kiln, int id,
+                                       PotteryToolbarIconFn fn,
+                                       const char *tooltip, int mode_count);
+void pottery_toolbar_add_svg          (PotteryKiln *kiln, int id,
+                                       PotteryIcon *icon,
+                                       const char *tooltip, int flags);
+void pottery_toolbar_add_sep          (PotteryKiln *kiln);
+void pottery_toolbar_set_cb           (PotteryKiln *kiln,
+                                       PotteryToolbarCb cb, void *userdata);
+void pottery_toolbar_set_pressed      (PotteryKiln *kiln, int id, bool pressed);
+void pottery_toolbar_set_enabled      (PotteryKiln *kiln, int id, bool enabled);
+void pottery_toolbar_set_mode         (PotteryKiln *kiln, int id, int mode);
+int  pottery_toolbar_get_mode         (PotteryKiln *kiln, int id);
+
+/* =========================================================================
  * Statusbar
  * ========================================================================= */
 
@@ -412,6 +463,7 @@ bool pottery_mold_tree (PotteryKiln *kiln, const char *id,
 /* Set text of a statusbar section (0 = left, ...).
  * width_hint : pixel width of the section, 0 = GROW (fills remaining space).
  * Call each frame or only when content changes — stored in kiln state. */
+void pottery_statusbar_enable (PotteryKiln *kiln);
 void pottery_statusbar_set (PotteryKiln *kiln, int section,
                              const char *text, float width_hint);
 

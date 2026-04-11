@@ -3,10 +3,77 @@
  */
 
 #include "pottery.h"
+#include <cairo.h>   /* pour cairo_t dans les icones toolbar */
 #include <stdio.h>
 #include <string.h>
 
 PotteryBackend *pottery_backend_win32_create(void);
+
+
+typedef struct {
+    char  name[128];
+    int   click_count;
+    bool  dark_mode;
+    int   language;
+    int   selected_file;
+    int   selected_tree;
+} AppState;
+
+/* ---- Icônes Cairo custom ---- */
+static void icon_new(void *vr, float cx, float cy, int mode) {
+    cairo_t *cr = (cairo_t*)vr; (void)mode;
+    cairo_set_source_rgba(cr, 0.3, 0.6, 1.0, 1.0);
+    cairo_set_line_width(cr, 1.5);
+    cairo_rectangle(cr, cx-7, cy-8, 10, 12);
+    cairo_stroke(cr);
+    cairo_move_to(cr, cx+3, cy-8);
+    cairo_line_to(cr, cx+3, cy-4);
+    cairo_line_to(cr, cx+7, cy-4);
+    cairo_stroke(cr);
+}
+
+static void icon_save(void *vr, float cx, float cy, int mode) {
+    cairo_t *cr = (cairo_t*)vr; (void)mode;
+    cairo_set_source_rgba(cr, 0.3, 0.8, 0.4, 1.0);
+    cairo_set_line_width(cr, 1.5);
+    cairo_rectangle(cr, cx-7, cy-8, 14, 16);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, cx-4, cy-8, 8, 5);
+    cairo_fill(cr);
+    cairo_set_source_rgba(cr, 0.3, 0.8, 0.4, 1.0);
+    cairo_rectangle(cr, cx-5, cy+1, 10, 7);
+    cairo_stroke(cr);
+}
+
+static void icon_snap(void *vr, float cx, float cy, int mode) {
+    cairo_t *cr = (cairo_t*)vr;
+    /* Multimode : 0=off 1=grid 2=points */
+    float alpha = mode > 0 ? 1.0f : 0.3f;
+    cairo_set_source_rgba(cr, 1.0, 0.7, 0.2, alpha);
+    cairo_set_line_width(cr, 1.5);
+    if (mode == 2) {
+        /* Points */
+        for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++) {
+            cairo_arc(cr, cx + dx*6, cy + dy*6, 1.5, 0, 6.28318f);
+            cairo_fill(cr);
+        }
+    } else {
+        /* Grille */
+        for (int d = -6; d <= 6; d += 6) {
+            cairo_move_to(cr, cx+d, cy-7); cairo_line_to(cr, cx+d, cy+7);
+            cairo_move_to(cr, cx-7, cy+d); cairo_line_to(cr, cx+7, cy+d);
+        }
+        cairo_stroke(cr);
+    }
+}
+
+enum { ID_NEW=1, ID_SAVE, ID_SNAP, ID_DARK };
+
+static void on_toolbar(int id, void *ud) {
+    AppState *app = (AppState *)ud;
+    if (id == ID_DARK) app->dark_mode = !app->dark_mode;
+}
 
 /* =========================================================================
  * Icônes SVG embarquées
@@ -49,14 +116,6 @@ static const char SVG_QUIT[] =
  * Application state
  * ========================================================================= */
 
-typedef struct {
-    char  name[128];
-    int   click_count;
-    bool  dark_mode;
-    int   language;
-    int   selected_file;
-    int   selected_tree;
-} AppState;
 
 /* =========================================================================
  * UI
@@ -296,9 +355,22 @@ int main(void) {
         .height     = 320,
         .backend    = backend,
         .glaze      = &light,
-        .statusbar  = true,
+        /* statusbar activée via pottery_statusbar_enable() */
     });
     if (!kiln) return 1;
+
+    /* ---- Toolbar ---- */
+    AppState app = {0};
+
+    pottery_statusbar_enable(kiln);
+    pottery_toolbar_enable(kiln);
+    pottery_toolbar_add_icon(kiln, ID_NEW,  icon_new,  "Nouveau",    POTTERY_BTN_NORMAL);
+    pottery_toolbar_add_icon(kiln, ID_SAVE, icon_save, "Sauvegarder",POTTERY_BTN_NORMAL);
+    pottery_toolbar_add_sep(kiln);
+    pottery_toolbar_add_icon_multimode(kiln, ID_SNAP, icon_snap, "Snap (3 modes)", 3);
+    pottery_toolbar_add_sep(kiln);
+    pottery_toolbar_add_btn(kiln, ID_DARK, "Theme", POTTERY_BTN_TOGGLE);
+    pottery_toolbar_set_cb(kiln, on_toolbar, &app);
 
     /* Charger les icônes depuis les SVG embarqués */
     PotteryIcon *icon_check = pottery_kiln_load_icon_data(
@@ -314,7 +386,6 @@ int main(void) {
         (void*)icon_check, (void*)icon_moon,
         (void*)icon_sun,   (void*)icon_quit);
 
-    AppState app = {0};
     PotteryGlaze glazes[2];
     glazes[0] = pottery_glaze_light();
     glazes[1] = pottery_glaze_dark();

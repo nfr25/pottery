@@ -4,6 +4,10 @@
 
 #define CLAY_IMPLEMENTATION
 #include "pottery_internal.h"
+
+/* Hauteur toolbar et statusbar */
+#define POTTERY_TB_H_KILN   36.0f
+#define POTTERY_SB_H_KILN   22.0f
 #include <stdio.h>
 
 #include <stdlib.h>
@@ -155,12 +159,17 @@ PotteryKiln *pottery_kiln_create(const PotteryKilnDesc *desc) {
         kiln->clay_memory_size, kiln->clay_memory);
 
     Clay_Initialize(arena,
-        (Clay_Dimensions){ (float)desc->width, (float)desc->height },
+        (Clay_Dimensions){
+            .width  = (float)desc->width,
+            .height = (float)desc->height
+        },
         (Clay_ErrorHandler){ pottery_clay_error, NULL });
 
     Clay_SetMeasureTextFunction(pottery_text_measure, &kiln->text);
 
-    kiln->has_statusbar = desc->statusbar;
+    /* has_statusbar et has_toolbar activés via pottery_statusbar/toolbar_enable() */
+    if (desc->statusbar) pottery_statusbar_enable(kiln);
+    /* Note: toolbar activé via pottery_toolbar_enable() après create */
 
     return kiln;
 }
@@ -180,6 +189,19 @@ void pottery_kiln_set_glaze(PotteryKiln *kiln, const PotteryGlaze *glaze) {
     assert(kiln && glaze);
     kiln->glaze = *glaze;
     pottery_text_update_fonts(&kiln->text, glaze);
+}
+
+
+
+static float kiln_clay_y(PotteryKiln *kiln) {
+    return kiln->has_toolbar ? POTTERY_TB_H_KILN : 0.0f;
+}
+
+static float kiln_clay_h(PotteryKiln *kiln) {
+    float h = (float)kiln->height;
+    if (kiln->has_toolbar)  h -= POTTERY_TB_H_KILN;
+    if (kiln->has_statusbar) h -= POTTERY_SB_H_KILN;
+    return h;
 }
 
 /* =========================================================================
@@ -212,12 +234,18 @@ bool pottery_kiln_begin_frame(PotteryKiln *kiln) {
             pango_cairo_update_context(kiln->cr, kiln->text.context);
             /* Inform Clay */
             Clay_SetLayoutDimensions(
-                (Clay_Dimensions){ (float)kiln->width, (float)kiln->height });
+                (Clay_Dimensions){ (float)kiln->width, kiln_clay_h(kiln) });
         }
-        pottery_input_push_event(&kiln->input, &evt);
+        /* Toolbar consomme les events souris si dans sa zone */
+        if (!pottery_toolbar_handle_event(kiln, &evt))
+            pottery_input_push_event(&kiln->input, &evt);
     }
 
     /* Update Clay pointer info */
+    float _clay_y = kiln_clay_y(kiln);
+    /* Ajuster mouse_y pour qu'il soit relatif à la zone Clay
+     * Les molds utilisent input.mouse_y pour le hit-test */
+    kiln->input.mouse_y -= (int)_clay_y;
     Clay_SetPointerState(
         (Clay_Vector2){ (float)kiln->input.mouse_x,
                         (float)kiln->input.mouse_y },
@@ -245,15 +273,13 @@ void pottery_kiln_end_frame(PotteryKiln *kiln) {
 
     Clay_RenderCommandArray commands = Clay_EndLayout(0.0f); /* deltaTime: 0 = pas d'animations Clay */
 
-    /* Clear background */
+    /* Clear background — zone Clay uniquement */
+    float clay_y = kiln_clay_y(kiln);
+    float clay_h = kiln_clay_h(kiln);
     const PotteryColor *bg = &kiln->glaze.background;
     cairo_set_source_rgba(kiln->cr, bg->r, bg->g, bg->b, bg->a);
-    cairo_paint(kiln->cr);
-
-    /* ---- Statusbar Clay element (rendu automatique) ---- */
-    if (kiln->has_statusbar) {
-        pottery_kiln_render_statusbar(kiln);
-    }
+    cairo_rectangle(kiln->cr, 0, clay_y, (float)kiln->width, clay_h);
+    cairo_fill(kiln->cr);
 
     /* Walk render commands */
     PotteryRenderer rend = {
@@ -263,7 +289,17 @@ void pottery_kiln_end_frame(PotteryKiln *kiln) {
         .input     = &kiln->input,
         .state_map = &kiln->state_map,
     };
+    /* Décaler Cairo pour que Clay dessine dans sa zone */
+    cairo_save(kiln->cr);
+    cairo_translate(kiln->cr, 0.0, clay_y);
     pottery_renderer_fire(&rend, commands);
+    cairo_restore(kiln->cr);
+
+    /* ---- Toolbar et statusbar par-dessus le contenu Clay ---- */
+    if (kiln->has_toolbar)
+        pottery_kiln_render_toolbar(kiln);
+    if (kiln->has_statusbar)
+        pottery_kiln_render_statusbar(kiln);
 
     /* Present */
     kiln->backend->present(kiln->backend->data);

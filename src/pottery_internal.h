@@ -345,12 +345,76 @@ static inline PotteryCustomPayload *pottery_payload_alloc(PotteryPayloadPool *po
 
 /* pottery_table_model_init est défini dans pottery_list.c */
 
+/* Activation statusbar/toolbar */
+void pottery_statusbar_enable        (PotteryKiln *kiln);
+void pottery_toolbar_enable          (PotteryKiln *kiln);
+
+/* Rendu interne toolbar */
+void pottery_kiln_render_toolbar     (PotteryKiln *kiln);
+bool pottery_toolbar_handle_event    (PotteryKiln *kiln, const PotteryEvent *evt);
+
 /* Rendu interne de la statusbar — appelé par pottery_kiln_end_frame */
 void pottery_kiln_render_statusbar(PotteryKiln *kiln);
 void pottery_table_model_init(PotteryTableModel *m,
                                const char * const *data,
                                const char * const *headers,
                                int rows, int cols);
+
+/* =========================================================================
+ * Toolbar state
+ * ========================================================================= */
+
+/* Constantes toolbar — définies ici pour être disponibles même si pottery.h est ancien */
+#ifndef POTTERY_TOOLBAR_MAX_ELEMS
+#define POTTERY_TOOLBAR_MAX_ELEMS 64
+#endif
+#ifndef POTTERY_TB_SPLIT_BASE
+#define POTTERY_TB_SPLIT_BASE 0x2000
+#endif
+#ifndef POTTERY_BTN_NORMAL
+#define POTTERY_BTN_NORMAL    0x00
+#define POTTERY_BTN_TOGGLE    0x01
+#define POTTERY_BTN_DISABLED  0x02
+#define POTTERY_BTN_SPLIT     0x04
+#endif
+
+/* PotteryToolbarCb peut venir de pottery.h — on évite la redéfinition */
+#ifndef POTTERY_TOOLBAR_CB_DEFINED
+#define POTTERY_TOOLBAR_CB_DEFINED
+typedef void (*PotteryToolbarCb)(int btn_id, void *userdata);
+#endif
+
+typedef enum {
+    POTTERY_TB_BTN,
+    POTTERY_TB_ICON,
+    POTTERY_TB_SVG,
+    POTTERY_TB_SEP,
+} PotteryToolbarElemType;
+
+/* Fonction icône Cairo custom — avec cairo_t réel (inclus via pottery_internal.h) */
+#undef PotteryToolbarIconFn
+typedef void (*PotteryToolbarIconFn)(cairo_t *cr, float cx, float cy, int mode);
+
+typedef struct {
+    PotteryToolbarElemType type;
+    int    id;
+    int    flags;          /* POTTERY_BTN_* */
+    char   label  [24];
+    char   tooltip[48];
+
+    PotteryToolbarIconFn icon_fn;   /* icône Cairo custom  */
+    PotteryIcon         *icon;      /* icône SVG           */
+
+    bool   pressed;
+    bool   hovered;
+    bool   arrow_hovered;  /* hover sur la zone flèche split */
+    bool   enabled;
+
+    int    mode;           /* mode courant (multimode)        */
+    int    mode_count;     /* 0 = pas multimode               */
+
+    float  x, w;           /* position calculée au rendu      */
+} PotteryToolbarElem;
 
 /* =========================================================================
  * Statusbar state
@@ -389,6 +453,13 @@ struct PotteryKiln {
 
     /* Payload pool (réinitialisé chaque frame) */
     PotteryPayloadPool payload_pool;
+
+    /* Toolbar */
+    bool                   has_toolbar;
+    PotteryToolbarElem     toolbar[POTTERY_TOOLBAR_MAX_ELEMS];
+    int                    toolbar_count;
+    PotteryToolbarCb       toolbar_cb;
+    void                  *toolbar_userdata;
 
     /* Statusbar */
     bool                   has_statusbar;

@@ -22,6 +22,17 @@
  * API publique
  * ========================================================================= */
 
+void pottery_statusbar_enable(PotteryKiln *kiln) {
+    if (!kiln) return;
+    kiln->has_statusbar = true;
+    Clay_SetLayoutDimensions((Clay_Dimensions){
+        .width  = (float)kiln->width,
+        .height = (float)kiln->height
+                  - (kiln->has_toolbar   ? 36.0f : 0.0f)
+                  - (kiln->has_statusbar ? 22.0f : 0.0f)
+    });
+}
+
 void pottery_statusbar_set(PotteryKiln *kiln, int section,
                             const char *text, float width_hint) {
     if (!kiln || section < 0 || section >= POTTERY_STATUSBAR_MAX_SECTIONS)
