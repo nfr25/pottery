@@ -58,7 +58,11 @@ pottery/
     └── c_cpp_properties.json
 ```
 
+## 📸 Screenshots
+
+![Screenshot](screenshots/screenshot.png)
 ---
+
 
 ## Dependencies (MSYS2/MINGW64)
 
